@@ -1,8 +1,8 @@
-# BindsNet-Self-Documentation
-Documentation created while learning BindsNet SNN Framework
+# BindsNET Self Documentation
+Documentation created while learning BindsNET SNN Framework
 
 ## Notebooks
-1. BindsNet Encoders Demo
-2. BindsNet Neuron Models Demo
-3. BindsNet Network Models Demo
-3. BindsNet Training Demo
+1. BindsNET Encoders Demo
+2. BindsNET Neuron Models Demo
+3. BindsNET Network Models Demo
+3. BindsNET Training Demo
