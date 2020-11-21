@@ -21,7 +21,7 @@ from bindsnet.utils import get_square_weights, get_square_assignments
 ### Input Data Parameters ###
 
 # number of training samples
-training_samples = 3
+training_samples = 1
 testing_samples = 10
 
 # set number of classes
@@ -206,7 +206,8 @@ graph_weights = False
 ###############
 
 # show current weights
-print(network.connections[("Input Layer", "LIF Layer")].w)
+#print("Current Weights:")
+#print(network.connections[("Input Layer", "LIF Layer")].w)
 
 # iterate for epochs
 for step in range(epochs):
@@ -271,7 +272,8 @@ for step in range(epochs):
         print(spike_record)
         #####################################
 
-        print(network.connections[("Input Layer", "LIF Layer")].w)
+        #print("Current Weights:")
+        #print(network.connections[("Input Layer", "LIF Layer")].w)
 
 
 
