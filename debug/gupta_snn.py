@@ -4,16 +4,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 
-from bindsnet.encoding import BernoulliEncoder
+from bindsnet.encoding import RepeatEncoder
 from bindsnet.network import Network
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.monitors import NetworkMonitor
 
 from bindsnet.analysis.plotting import plot_spikes, plot_voltages, plot_input, plot_weights
 
-from bindsnet.network.nodes import Input, LIFNodes, IFNodes
+from bindsnet.network.nodes import Input, LIFNodes
 from bindsnet.network.topology import Connection
-from bindsnet.learning import PostPre, Hebbian, WeightDependentPostPre, MSTDP, MSTDPET
+from bindsnet.learning import Hebbian
 
 from bindsnet.evaluation import all_activity, proportion_weighting, assign_labels
 from bindsnet.utils import get_square_weights, get_square_assignments
@@ -21,8 +21,8 @@ from bindsnet.utils import get_square_weights, get_square_assignments
 ### Input Data Parameters ###
 
 # number of training samples
-training_samples = 80
-testing_samples = 10
+training_samples = 2
+testing_samples = 20
 
 # set number of classes
 n_classes = 2
@@ -31,33 +31,40 @@ n_classes = 2
 
 # configure number of input neurons
 input_layer_name = "Input Layer"
-input_neurons = 9
+input_neurons = 15
 
-# configure the number of output lif neurons
-lif_layer_name = "LIF Layer"
-lif_neurons = 2
+# configure number of hidden neurons
+# hidden_layer_name = "Hidden Layer"
+# hidden_neurons = 11
+
+# configure the number of output neurons
+output_layer_name = "Output Layer"
+output_neurons = 2
 
 ### Simulation Parameters ###
 
 # simulation time
-time = 10
-dt = 1
+time = 2000
+dt = 0.2
+timesteps = int(time/dt)
 
 # number of training iterations
-epochs = 1
+epochs = 100
 
 # ratio of neurons to classes
-per_class = int(lif_neurons / n_classes)
+per_class = int(output_neurons / n_classes)
+
+### Construct Input Dataset ###
 
 # store unique images in a list
 imgs = []
 
 # Class 0 Image
-img0 = {"Label" : 0, "Image" : torch.FloatTensor([[1,1,1],[1,0,1],[1,1,1]])}
+img0 = {"Label" : 0, "Image" : torch.FloatTensor([[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]])}
 imgs.append(img0)
 
 # Class 1 Image
-img1 = {"Label" : 1, "Image" : torch.FloatTensor([[0,1,0],[0,1,0],[0,1,0]])}
+img1 = {"Label" : 1, "Image" : torch.FloatTensor([[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0]])}
 imgs.append(img1)
 
 # initialize list of inputs for training
@@ -76,7 +83,7 @@ for i in range(training_samples):
     training_dataset.append(imgs[rand_sample])
 
 # initialize the encoder
-encoder = BernoulliEncoder(time=time, dt=dt)
+encoder = RepeatEncoder(time=time, dt=dt)
 
 # list of encoded images for random selection during training
 encoded_train_inputs = []
@@ -129,11 +136,14 @@ for sample in testing_dataset:
 ### NETWORK CONFIGURATION ###
 
 # initialize network
-network = Network()
+network = Network(dt=dt)
 
-# configure weights for the synapses between the input layer and LIF layer
+# configure weights for the synapses between the input layer and hidden layer
 #w = torch.round(torch.abs(2 * torch.randn(input_neurons, lif_neurons)))
-w = torch.zeros(input_neurons,lif_neurons)
+#w_1_2 = torch.randn(input_neurons,hidden_neurons)
+
+# configure weights for the synapses between the hidden layer and output layer
+#w_2_3 = torch.randn(hidden_neurons,output_neurons)
 
 # initialize input and LIF layers
 # spike traces must be recorded (why?)
@@ -141,45 +151,75 @@ w = torch.zeros(input_neurons,lif_neurons)
 # initialize input layer
 input_layer = Input(n=input_neurons,traces=True)
 
-# initialize input layer
-# lif_layer = LIFNodes(n=lif_neurons,traces=True)
-lif_layer = IFNodes(n=lif_neurons,traces=True)
+# initialize hidden layer
+# hidden_layer = LIFNodes(n=hidden_neurons,traces=True, rest=0, reset=0, thresh=0.5)
 
-# initialize connection between the input layer and the LIF layer
+# initialize the output layer
+output_layer = LIFNodes(
+    n=output_neurons,
+    traces=True, 
+    rest=0, 
+    reset=-1, 
+    thresh=10,
+    tc_decay=30
+    )
+
+# initialize connection between the input layer and the hidden layer
 # specify the learning (update) rule and learning rate (nu)
-connection = Connection(
+# input_hidden_connection = Connection(
+#     #source=input_layer, target=lif_layer, w=w, update_rule=PostPre, nu=(1e-4, 1e-2)
+#     source=input_layer, target=hidden_layer, update_rule=Hebbian, nu=(1, 1), norm=1
+# )
+
+# initialize connection between the hidden layer and the output layer
+input_output_connection = Connection(
     #source=input_layer, target=lif_layer, w=w, update_rule=PostPre, nu=(1e-4, 1e-2)
-    source=input_layer, target=lif_layer, w=w, update_rule=PostPre, nu=(1, 1)
+    source=input_layer, 
+    target=output_layer, 
+    update_rule=Hebbian, 
+    nu=(0.1, 0.1), 
+    norm=1
 )
+
 
 # add input layer to the network
 network.add_layer(
     layer=input_layer, name=input_layer_name
 )
 
-# add lif neuron layer to the network
+# add hidden neuron layer to the network
+# network.add_layer(
+#     layer=hidden_layer, name=hidden_layer_name
+# )
+
+# add output neuron layer to the network
 network.add_layer(
-    layer=lif_layer, name=lif_layer_name
+    layer=output_layer, name=output_layer_name
 )
+
+# # add connection to network
+# network.add_connection(
+#     connection=input_hidden_connection, source=input_layer_name, target=hidden_layer_name
+# )
 
 # add connection to network
 network.add_connection(
-    connection=connection, source=input_layer_name, target=lif_layer_name
+    connection=input_output_connection, source=input_layer_name, target=output_layer_name
 )
 
 ### SIMULATION VARIABLES ###
 
 # record the spike times of each neuron during the simulation.
-spike_record = torch.zeros(1, int(time / dt), lif_neurons)
+spike_record = torch.zeros(1, timesteps, output_neurons)
 
 # record the mapping of each neuron to its corresponding label
-assignments = -torch.ones_like(torch.Tensor(lif_neurons))
+assignments = -torch.ones_like(torch.Tensor(output_neurons))
 
 # how frequently each neuron fires for each input class
-rates = torch.zeros_like(torch.Tensor(lif_neurons, n_classes))
+rates = torch.zeros_like(torch.Tensor(output_neurons, n_classes))
 
 # the likelihood of each neuron firing for each input class
-proportions = torch.zeros_like(torch.Tensor(lif_neurons, n_classes))
+proportions = torch.zeros_like(torch.Tensor(output_neurons, n_classes))
 
 
 # label(s) of the input(s) being processed
@@ -193,7 +233,7 @@ for layer in set(network.layers):
     # initialize spike monitor at the layer
     # do not record the voltage if at the input layer
     state_vars = ["s","v"] if (layer != input_layer_name) else ["s"]
-    layer_monitors[layer] = Monitor(network.layers[layer], state_vars=state_vars, time=int(time/dt))
+    layer_monitors[layer] = Monitor(network.layers[layer], state_vars=state_vars, time=timesteps)
 
     # connect the monitor to the network
     network.add_monitor(layer_monitors[layer], name="%s_spikes" % layer)
@@ -203,13 +243,13 @@ num_correct = 0.0
 
 ### DEBUG ###
 ### can be used to force the network to learn the inputs in a specific way
-supervised = True
+supervised = False
 ### used to determine if status messages are printed out at each sample
 log_messages = False
 ### used to show weight changes
 graph_weights = False
 ###
-epochs = 100
+epochs = 5
 ###############
 
 # show current weights
@@ -225,11 +265,8 @@ for step in range(epochs):
     for sample in encoded_train_inputs:
         
         # print sample number
-        print("Training Sample:",str(sample_num)+"/"+str(training_samples))
-
-        if sample_num < 5:
-            print("Current Weights:")
-            print(network.connections[("Input Layer", "LIF Layer")].w)
+        if(sample_num % (training_samples / 10) == 0):
+            print("Epoch:",str(step+1) + "/" + str(epochs),"Training Sample:", str(sample_num+1) + "/" + str(training_samples))
 
         sample_num += 1
         
@@ -244,7 +281,7 @@ for step in range(epochs):
         # this is necessary in order for the network to learn which neurons correspond to which classes
         # clamp: Mapping of layer names to boolean masks if neurons should be clamped to spiking. 
         # The ``Tensor``s have shape ``[n_neurons]`` or ``[time, n_neurons]``.
-        clamp = {lif_layer_name: per_class * labels[0] + torch.Tensor(choice).long()} if supervised else {}
+        clamp = {output_layer_name: per_class * labels[0] + torch.Tensor(choice).long()} if supervised else {}
 
         #print(sample["Inputs"])
 
@@ -252,7 +289,7 @@ for step in range(epochs):
         network.run(inputs=sample["Inputs"], time=time, clamp=clamp)
 
         ### Step 2: Get the spikes produced at the output layer ###
-        spike_record[0] = layer_monitors[lif_layer_name].get("s").view(time, lif_neurons)
+        spike_record[0] = layer_monitors[output_layer_name].get("s").squeeze()
         
         ### Step 3: ###
 
@@ -293,8 +330,8 @@ for step in range(epochs):
         #####################################
         
         
-
-
+    #print("MONTOR OUTPUT SPIKES(2):")
+    #print(layer_monitors[output_layer_name].get("s"))
 
     ### For Weight Plotting ###
     if graph_weights:
@@ -336,6 +373,9 @@ if graph_weights:
 #         "Rates:",rates[idx]
 #         )
 
+print("Final Weights:")
+print(network.connections[(input_layer_name, output_layer_name)].w)
+
 
 
 #### Test Data ####
@@ -357,7 +397,7 @@ for sample in encoded_test_inputs:
     network.run(inputs=sample["Inputs"], time=time)
 
     ### Step 2: Get the spikes produced at the output layer ###
-    spike_record[0] = layer_monitors[lif_layer_name].get("s").view(time, lif_neurons)
+    spike_record[0] = layer_monitors[output_layer_name].get("s").squeeze()
 
     ### Step 3: ###
 
