@@ -21,7 +21,7 @@ from bindsnet.utils import get_square_weights, get_square_assignments
 ### Input Data Parameters ###
 
 # number of training samples
-training_samples = 80
+training_samples = 10
 testing_samples = 10
 
 # set number of classes
@@ -34,8 +34,8 @@ input_layer_name = "Input Layer"
 input_neurons = 9
 
 # configure the number of output lif neurons
-lif_layer_name = "LIF Layer"
-lif_neurons = 2
+output_layer_name = "Output Layer"
+output_neurons = 2
 
 ### Simulation Parameters ###
 
@@ -47,7 +47,7 @@ dt = 1
 epochs = 1
 
 # ratio of neurons to classes
-per_class = int(lif_neurons / n_classes)
+per_class = int(output_neurons / n_classes)
 
 # store unique images in a list
 imgs = []
@@ -133,7 +133,8 @@ network = Network()
 
 # configure weights for the synapses between the input layer and LIF layer
 #w = torch.round(torch.abs(2 * torch.randn(input_neurons, lif_neurons)))
-w = torch.zeros(input_neurons,lif_neurons)
+#w = torch.zeros(input_neurons,lif_neurons)
+w = torch.FloatTensor([[1,-1],[1,1],[1,-1],[1,-1],[-1,1],[1,-1],[1,-1],[1,1],[1,-1]])
 
 # initialize input and LIF layers
 # spike traces must be recorded (why?)
@@ -143,13 +144,18 @@ input_layer = Input(n=input_neurons,traces=True)
 
 # initialize input layer
 # lif_layer = LIFNodes(n=lif_neurons,traces=True)
-lif_layer = IFNodes(n=lif_neurons,traces=True)
+output_layer = IFNodes(
+    n = output_neurons,
+    thresh = 9,
+    reset = 0,
+    traces=True
+    )
 
 # initialize connection between the input layer and the LIF layer
 # specify the learning (update) rule and learning rate (nu)
 connection = Connection(
     #source=input_layer, target=lif_layer, w=w, update_rule=PostPre, nu=(1e-4, 1e-2)
-    source=input_layer, target=lif_layer, w=w, update_rule=PostPre, nu=(1, 1)
+    source=input_layer, target=output_layer, w=w, update_rule=PostPre, nu=(1, 1)
 )
 
 # add input layer to the network
@@ -159,27 +165,27 @@ network.add_layer(
 
 # add lif neuron layer to the network
 network.add_layer(
-    layer=lif_layer, name=lif_layer_name
+    layer=output_layer, name=output_layer_name
 )
 
 # add connection to network
 network.add_connection(
-    connection=connection, source=input_layer_name, target=lif_layer_name
+    connection=connection, source=input_layer_name, target=output_layer_name
 )
 
 ### SIMULATION VARIABLES ###
 
 # record the spike times of each neuron during the simulation.
-spike_record = torch.zeros(1, int(time / dt), lif_neurons)
+spike_record = torch.zeros(1, int(time / dt), output_neurons)
 
 # record the mapping of each neuron to its corresponding label
-assignments = -torch.ones_like(torch.Tensor(lif_neurons))
+assignments = -torch.ones_like(torch.Tensor(output_neurons))
 
 # how frequently each neuron fires for each input class
-rates = torch.zeros_like(torch.Tensor(lif_neurons, n_classes))
+rates = torch.zeros_like(torch.Tensor(output_neurons, n_classes))
 
 # the likelihood of each neuron firing for each input class
-proportions = torch.zeros_like(torch.Tensor(lif_neurons, n_classes))
+proportions = torch.zeros_like(torch.Tensor(output_neurons, n_classes))
 
 
 # label(s) of the input(s) being processed
@@ -208,8 +214,6 @@ supervised = True
 log_messages = False
 ### used to show weight changes
 graph_weights = False
-###
-epochs = 100
 ###############
 
 # show current weights
@@ -229,7 +233,7 @@ for step in range(epochs):
 
         if sample_num < 5:
             print("Current Weights:")
-            print(network.connections[("Input Layer", "LIF Layer")].w)
+            print(network.connections[(input_layer_name, output_layer_name)].w)
 
         sample_num += 1
         
@@ -244,7 +248,7 @@ for step in range(epochs):
         # this is necessary in order for the network to learn which neurons correspond to which classes
         # clamp: Mapping of layer names to boolean masks if neurons should be clamped to spiking. 
         # The ``Tensor``s have shape ``[n_neurons]`` or ``[time, n_neurons]``.
-        clamp = {lif_layer_name: per_class * labels[0] + torch.Tensor(choice).long()} if supervised else {}
+        clamp = {output_layer_name: per_class * labels[0] + torch.Tensor(choice).long()} if supervised else {}
 
         #print(sample["Inputs"])
 
@@ -252,7 +256,7 @@ for step in range(epochs):
         network.run(inputs=sample["Inputs"], time=time, clamp=clamp)
 
         ### Step 2: Get the spikes produced at the output layer ###
-        spike_record[0] = layer_monitors[lif_layer_name].get("s").view(time, lif_neurons)
+        spike_record[0] = layer_monitors[output_layer_name].get("s").view(time, output_neurons)
         
         ### Step 3: ###
 
@@ -298,10 +302,10 @@ for step in range(epochs):
 
     ### For Weight Plotting ###
     if graph_weights:
-        weights = network.connections[("Input Layer", "LIF Layer")].w[:,0].numpy().reshape((1,input_neurons))
+        weights = network.connections[(input_layer_name, output_layer_name)].w[:,0].numpy().reshape((1,input_neurons))
         weight_history = weights.copy() if step == 0 else np.concatenate((weight_history,weights),axis=0)
-        print("Neuron 0 Weights:\n",network.connections[("Input Layer", "LIF Layer")].w[:,0])
-        print("Neuron 1 Weights:\n",network.connections[("Input Layer", "LIF Layer")].w[:,1])
+        print("Neuron 0 Weights:\n",network.connections[(input_layer_name, output_layer_name)].w[:,0])
+        print("Neuron 1 Weights:\n",network.connections[(input_layer_name, output_layer_name)].w[:,1])
         print("====================")
     #############################
 
@@ -357,7 +361,7 @@ for sample in encoded_test_inputs:
     network.run(inputs=sample["Inputs"], time=time)
 
     ### Step 2: Get the spikes produced at the output layer ###
-    spike_record[0] = layer_monitors[lif_layer_name].get("s").view(time, lif_neurons)
+    spike_record[0] = layer_monitors[output_layer_name].get("s").view(time, output_neurons)
 
     ### Step 3: ###
 
@@ -391,4 +395,9 @@ for sample in encoded_test_inputs:
                 )
         print("\n")
     #####################################
+
+# plt.figure()
+plot_spikes({"Output Layer":layer_monitors[output_layer_name].get("s")})
+plt.show()
+
 print("Accuracy:", num_correct / len(encoded_test_inputs) )

@@ -39,6 +39,11 @@ input_neurons = 9
 output_layer_name = "Y"
 output_neurons = 2
 
+### Training Parameters ###
+
+# number of training iterations
+epochs = 100
+
 ### Simulation Parameters ###
 
 # simulation time
@@ -47,11 +52,10 @@ time = 700
 dt = 10
 timesteps = int(time/dt)
 
-# number of training iterations
-epochs = 10000
-
 # ratio of neurons to classes
 per_class = int(output_neurons / n_classes)
+
+### Create Input Datasets
 
 # store unique images in a list
 imgs = []

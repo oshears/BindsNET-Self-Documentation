@@ -293,9 +293,16 @@ def main(seed=0, n_neurons=100, n_train=60000, n_test=10000, inhib=100, lr=0.01,
                 network.connections['X', 'Y'].update_rule.nu[1] *= lr_decay
 
         # Run the network on the input.
+        # print("Example",i,"Results:")
+        # for j in range(time):
+        #     result = pipeline.env_step()
+        #     pipeline.step(result,a_plus=1, a_minus=0)
+        # print(result)
         for j in range(time):
-            result = pipeline.env_step()
-            pipeline.step(result,a_plus=1, a_minus=0)
+            pipeline.train()
+
+        if not train:
+            _spikes = {layer: spikes[layer].get('s') for layer in spikes}
 
         if plot:
             _spikes = {layer: spikes[layer].get('s') for layer in spikes}
