@@ -48,7 +48,7 @@ dt = 10
 timesteps = int(time/dt)
 
 # number of training iterations
-epochs = 1000
+epochs = 10000
 
 # ratio of neurons to classes
 per_class = int(output_neurons / n_classes)
