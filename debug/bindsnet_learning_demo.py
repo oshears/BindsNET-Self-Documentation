@@ -40,7 +40,7 @@ output_neurons = 2
 ### Simulation Parameters ###
 
 # simulation time
-time = 10
+time = 100
 dt = 1
 
 # number of training iterations
@@ -133,20 +133,35 @@ network = Network()
 
 # configure weights for the synapses between the input layer and LIF layer
 #w = torch.round(torch.abs(2 * torch.randn(input_neurons, lif_neurons)))
-#w = torch.zeros(input_neurons,lif_neurons)
-w = torch.FloatTensor([[1,-1],[1,1],[1,-1],[1,-1],[-1,1],[1,-1],[1,-1],[1,1],[1,-1]])
+w = torch.zeros(input_neurons,output_neurons)
+
+# Optimal Weights for this task
+# w = torch.FloatTensor([
+#     [1,-2],
+#     [1,4],
+#     [1,-2],
+#     [1,0],
+#     [-2,4],
+#     [1,0],
+#     [1,-2],
+#     [1,4],
+#     [1,-2]])
+# w = w / w.norm()
 
 # initialize input and LIF layers
 # spike traces must be recorded (why?)
 
 # initialize input layer
-input_layer = Input(n=input_neurons,traces=True)
+input_layer = Input(
+    n=input_neurons,
+    traces=True
+    )
 
 # initialize input layer
 # lif_layer = LIFNodes(n=lif_neurons,traces=True)
 output_layer = IFNodes(
     n = output_neurons,
-    thresh = 9,
+    thresh = 8,
     reset = 0,
     traces=True
     )
@@ -155,7 +170,12 @@ output_layer = IFNodes(
 # specify the learning (update) rule and learning rate (nu)
 connection = Connection(
     #source=input_layer, target=lif_layer, w=w, update_rule=PostPre, nu=(1e-4, 1e-2)
-    source=input_layer, target=output_layer, w=w, update_rule=PostPre, nu=(1, 1)
+    source=input_layer, 
+    target=output_layer, 
+    w=w, 
+    update_rule=PostPre, 
+    nu=(1, 1),
+    norm=1
 )
 
 # add input layer to the network
@@ -227,6 +247,8 @@ for step in range(epochs):
     sample_num = 0
 
     for sample in encoded_train_inputs:
+        print("Current Weights:")
+        print(network.connections[(input_layer_name, output_layer_name)].w)
         
         # print sample number
         print("Training Sample:",str(sample_num)+"/"+str(training_samples))
@@ -325,9 +347,9 @@ for step in range(epochs):
 
 ### For Weight Plotting ###
 # Plot Weight Changes
-if graph_weights:
-    [plt.plot(weight_history[:,idx]) for idx in range(weight_history.shape[1])]
-    plt.show()
+# if graph_weights:
+#     [plt.plot(weight_history[:,idx]) for idx in range(weight_history.shape[1])]
+#     plt.show()
     
 #############################
 
@@ -396,8 +418,12 @@ for sample in encoded_test_inputs:
         print("\n")
     #####################################
 
-# plt.figure()
-plot_spikes({"Output Layer":layer_monitors[output_layer_name].get("s")})
-plt.show()
+plot_spikes({output_layer_name : layer_monitors[output_layer_name].get("s")})
+plot_voltages({output_layer_name : layer_monitors[output_layer_name].get("v")}, plot_type="line")
+
+
+plt.show(block=True)
+
+
 
 print("Accuracy:", num_correct / len(encoded_test_inputs) )
